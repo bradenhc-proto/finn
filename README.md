@@ -1,0 +1,2 @@
+# finn
+Personal financial assistant
