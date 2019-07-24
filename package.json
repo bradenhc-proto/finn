@@ -1,0 +1,24 @@
+{
+  "name": "finn",
+  "version": "1.0.0",
+  "description": "Personal financial assistant",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "doc": "jsdoc -c ./jsdoc-conf.json -r src/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bradenhc/finn.git"
+  },
+  "author": "Braden Hitchcock <developer.hitchcock@gmail.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/bradenhc/finn/issues"
+  },
+  "homepage": "https://github.com/bradenhc/finn#readme",
+  "dependencies": {
+    "koa": "^2.7.0",
+    "pg": "^7.11.0"
+  }
+}
