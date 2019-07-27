@@ -1,6 +1,13 @@
 # Generated documentation
 out/
 
+# Configuration
+config/
+
+# Data
+cockroach-data/
+data/
+
 # Logs
 logs
 *.log

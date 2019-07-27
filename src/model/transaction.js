@@ -1,4 +1,5 @@
 /** @typedef {import('./account')} Account module:model.Account */
+const uuid = require('uuid/v4');
 
 const TransactionType = require('./transaction-type');
 
@@ -13,6 +14,7 @@ const TransactionType = require('./transaction-type');
 class Transaction {
   constructor(id) {
     if (id === undefined) {
+      id = uuid();
     }
 
     /**

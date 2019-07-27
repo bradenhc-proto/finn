@@ -18,7 +18,10 @@
   },
   "homepage": "https://github.com/bradenhc/finn#readme",
   "dependencies": {
+    "@koa/router": "^8.0.0",
+    "config": "^3.2.2",
     "koa": "^2.7.0",
-    "pg": "^7.11.0"
+    "pg": "^7.11.0",
+    "uuid": "^3.3.2"
   }
 }

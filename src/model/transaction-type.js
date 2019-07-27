@@ -3,6 +3,12 @@ const proto = (module.exports = {
   INCOME: 'income',
   EXPENSE: 'expense',
   TRANSFER: 'transfer',
+
+  /**
+   * Determines whether a string is a valid transaction type.
+   * 
+   * @param {string} str the string to validate.
+   */
   validate: function(str) {
     switch (str) {
       case proto.UNKNOWN:
