@@ -48,16 +48,10 @@ class Transaction {
     this.targetAccount = null;
 
     /**
-     * The whole part (left of the decimal) of the monetary amount of the transaction.
+     * The amount in the transaction in $0.00001.
      * @type {number}
      */
-    this.amountWhole = null;
-
-    /**
-     * The remainder (right of the decimal) of the monetary amount of the transaction.
-     * @type {number}
-     */
-    this.amountRemainder = null;
+    this.unitAmount = null;
 
     /**
      * The UNIX timestamp (UTC) in milliseconds of when the transaction took place.
@@ -84,16 +78,16 @@ class Transaction {
   }
 
   _executeIncome() {
-    this.targetAccount.addIncome(this.amountWhole, this.amountRemainder);
+    this.targetAccount.addIncome(this.unitAmount);
   }
 
   _executeExpense() {
-    this.targetAccount.addExpense(this.amountWhole, this.amountRemainder);
+    this.targetAccount.addExpense(this.unitAmount);
   }
 
   _executeTransfer() {
-    this.sourceAccount.addExpense(this.amountWhole, this.amountRemainder);
-    this.targetAccount.addIncome(this.amountWhole, this.amountRemainder);
+    this.sourceAccount.addExpense(this.unitAmount);
+    this.targetAccount.addIncome(this.unitAmount);
   }
 };
 
