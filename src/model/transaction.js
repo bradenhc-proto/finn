@@ -37,13 +37,13 @@ class Transaction {
     
     /**
      * The source account for a transfer. Only valid when the transaction type is `'transfer'`.
-     * @type {Account}
+     * @type {string}
      */
     this.sourceAccount = null;
 
     /**
      * The account targeted by the transaction.
-     * @type {Account}
+     * @type {string}
      */
     this.targetAccount = null;
 
@@ -63,31 +63,33 @@ class Transaction {
   /**
    * Executes the transaction in a manner based on its type.
    *
+   * @param {Account} target The target account.
+   * @param {Account} [source] The source account if the transaction is a transfer
    * @throws {Error} When an invalid transaction is processed, such as one that will cause an account balance to become
    * negative.
    */
-  execute() {
+  execute(target, source) {
     switch (this.type) {
       case TransactionType.INCOME:
-        return this._executeIncome();
+        return this._executeIncome(target);
       case TransactionType.EXPENSE:
-        return this._executeExpense();
+        return this._executeExpense(target);
       case TransactionType.TRANSFER:
-        return this._executeTransfer();
+        return this._executeTransfer(source, target);
     }
   }
 
-  _executeIncome() {
-    this.targetAccount.addIncome(this.unitAmount);
+  _executeIncome(target) {
+    target.addIncome(this.unitAmount);
   }
 
-  _executeExpense() {
-    this.targetAccount.addExpense(this.unitAmount);
+  _executeExpense(target) {
+    target.addExpense(this.unitAmount);
   }
 
-  _executeTransfer() {
-    this.sourceAccount.addExpense(this.unitAmount);
-    this.targetAccount.addIncome(this.unitAmount);
+  _executeTransfer(source, target) {
+    source.addExpense(this.unitAmount);
+    target.addIncome(this.unitAmount);
   }
 };
 

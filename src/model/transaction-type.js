@@ -8,6 +8,8 @@ const proto = (module.exports = {
    * Determines whether a string is a valid transaction type.
    * 
    * @param {string} str the string to validate.
+   * @returns {string} The string if valid.
+   * @throws {Error} When an invalid string type is provided.
    */
   validate: function(str) {
     switch (str) {
@@ -15,7 +17,7 @@ const proto = (module.exports = {
       case proto.INCOME:
       case proto.EXPENSE:
       case proto.TRANSFER:
-        return true;
+        return str;
     }
     throw new Error(`Invalid transaction type "${str}"`);
   }
