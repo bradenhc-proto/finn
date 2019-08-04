@@ -1,3 +1,6 @@
+const FinnError = require('./error');
+const HttpStatus = require('http-status-codes');
+
 const UNIT_RATIO = 10000;
 
 module.exports = {
@@ -7,8 +10,16 @@ module.exports = {
    *
    * @param {number|string} amount The human-readable amount to convert to a unit amount.
    * @returns {number} The unit amount (in $0.00001)
+   * @throws {FinnError} When the amount evaluates to a false value (i.e. it is missing)
    */
   toUnitAmount: function(amount) {
+    if (!amount) {
+      throw new FinnError(
+        HttpStatus.BAD_REQUEST,
+        'Missing monetary amount',
+        'Cannot complete conversion to unit amount due to missing amount'
+      );
+    }
     if (typeof amount === 'string') {
       amount = parseFloat(amount);
     }
@@ -20,9 +31,9 @@ module.exports = {
    * computations that may result in floating point errors.
    *
    * @param {number} amount The unit amount to convert.
-   * @returns {number} the "human-readable" amount.
+   * @returns {string} the "human-readable" amount.
    */
   fromUnitAmount: function(amount) {
-    return Math.floor(amount / UNIT_RATIO) + (amount % UNIT_RATIO) * (1 / UNIT_RATIO);
+    return (Math.floor(amount / UNIT_RATIO) + (amount % UNIT_RATIO) * (1 / UNIT_RATIO)).toFixed(2);
   }
 };

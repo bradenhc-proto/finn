@@ -3,10 +3,8 @@ const Router = require('koa-router');
 const config = require('config');
 const bodyparser = require('koa-bodyparser');
 const Account = require('./model/account');
-const AccountType = require('./model/account-type');
 const accountsRepo = require('./data-access/mock/accounts-repo');
 const Transaction = require('./model/transaction');
-const TransactionType = require('./model/transaction-type');
 const transactionsRepo = require('./data-access/mock/transactions-repo');
 const conversions = require('./utils/conversions');
 
@@ -19,20 +17,26 @@ router.use(bodyparser());
 //router.use(dbMiddleware(config.get('database')));
 
 router.get('/accounts', async ctx => {
-  ctx.body = await accountsRepo.all();
+  ctx.body = (await accountsRepo.all()).map( a => {
+    delete a.unitAmount;
+    return a;
+  });
 });
 
 router.post('/accounts', async ctx => {
-  let a = new Account();
-  a.name = ctx.request.body.name;
-  a.description = ctx.request.body.description;
-  a.type = AccountType.validate(ctx.request.body.type);
+  ctx.request.body.unitAmount = conversions.toUnitAmount(ctx.request.body.amount || '0.00');
+  let a = Account.convert(ctx.request.body, true);
+
   await accountsRepo.add(a);
+
+  a.amount = conversions.fromUnitAmount(a.unitAmount);
+  delete a.unitAmount;
   ctx.body = a;
 });
 
 router.get('/accounts/:id', async ctx => {
   let a = await accountsRepo.get(ctx.params.id);
+  delete a.unitAmount;
   ctx.body = a;
 });
 
@@ -41,23 +45,45 @@ router.get('/transactions', async ctx => {
 });
 
 router.post('/transactions', async ctx => {
-  let t = new Transaction();
-  t.type = TransactionType.validate(ctx.request.body.type);
-  t.unitAmount = conversions.toUnitAmount(ctx.request.body.amount);
-  t.details = ctx.request.body.details;
-  t.sourceAccount = ctx.request.body.source;
-  t.targetAccount = ctx.request.body.target;
+  ctx.request.body.unitAmount = conversions.toUnitAmount(ctx.request.body.amount);
+  let t = Transaction.convert(ctx.request.body, true);
+
   await transactionsRepo.add(t);
-  let source = t.sourceAccount ? await accountsRepo.get(t.sourceAccount) : null;
-  let target = await accountsRepo.get(t.targetAccount);
+
+  let source = t.sourceAccountId ? await accountsRepo.get(t.sourceAccountId) : null;
+  let target = await accountsRepo.get(t.targetAccountId);
   t.execute(target, source);
-  source && await accountsRepo.update(source);
-  target && await accountsRepo.update(target);
+
+  source && (await accountsRepo.update(source));
+  target && (await accountsRepo.update(target));
+
+  t.isCompleted = true;
+  await transactionsRepo.update(t);
+
+  t.amount = conversions.fromUnitAmount(t.unitAmount);
+  delete t.unitAmount;
   ctx.body = t;
 });
 
 router.get('/transactions/:id', async ctx => {
   ctx.body = await transactionsRepo.get(ctx.params.id);
+});
+
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (e) {
+    console.log(e);
+    ctx.status = e.httpStatusCode || e.status;
+    ctx.body = {
+      message: e.message
+    };
+    app.emit('error', e, ctx);
+  }
+});
+
+app.on('error', (err, ctx) => {
+  console.log(err);
 });
 
 app.use(router.routes());
