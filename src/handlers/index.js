@@ -1,11 +1,3 @@
 module.exports = {
-
-  accounts: {
-
-    create: async function(account) {
-
-    }
-    
-  }
-
-}
+  accounts: require('./accounts-handlers')
+};
