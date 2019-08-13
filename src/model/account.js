@@ -3,17 +3,33 @@ const Joi = require('@hapi/joi');
 const FinnError = require('../utils/error');
 const HttpStatus = require('http-status-codes');
 const AccountType = require('./account-type');
-const checkProperty = require('../utils/check-property');
 const conversions = require('../utils/conversions');
 
-const JoiSchema = Joi.object().keys({
+const Schema = {
   id: Joi.string(),
   type: Joi.string().allow(Object.values(AccountType)),
   name: Joi.string().regex(/[a-zA-Z0-9 \-\.]+/),
   description: Joi.string().max(256),
   amount: Joi.string(),
-  unitAmount: Joi.number().integer()
-});
+  unitAmount: Joi.number().integer(),
+  conversionFactor: Joi.number().integer(),
+  isDeleted: Joi.boolean()
+};
+
+const CreateRequestSchema = {
+  type: Schema.type.required(),
+  name: Schema.name.required(),
+  description: Schema.description.optional()
+};
+
+const UpdateRequestSchema = {
+  name: Schema.name.required(),
+  description: Schema.description.optional()
+};
+
+const ReadSchema = Joi.object()
+  .keys(Schema)
+  .options({ presence: 'required' });
 
 /**
  * Represents information about a financial account, including the amount of money.
@@ -55,6 +71,18 @@ class Account {
      * @type {number}
      */
     this.unitAmount = 0;
+
+    /**
+     * The conversion factor used for this account.
+     * @type {number}
+     */
+    this.conversionFactor = conversions.CONVERSION_FACTOR;
+
+    /**
+     * Indicates whether the account has been "deleted" or not.
+     * @type {boolean}
+     */
+    this.isDeleted = false;
   }
 
   /**
@@ -72,7 +100,7 @@ class Account {
       case AccountType.DEBT:
         this.unitAmount -= unitAmount;
     }
-    this.amount = conversions.fromUnitAmount(this.unitAmount);
+    this.amount = conversions.fromUnitAmount(this.unitAmount, this.conversionFactor);
   }
 
   /**
@@ -89,40 +117,71 @@ class Account {
       case AccountType.DEBT:
         this.unitAmount += unitAmount;
     }
-    this.amount = conversions.fromUnitAmount(this.unitAmount);
+    this.amount = conversions.fromUnitAmount(this.unitAmount, this.conversionFactor);
   }
 
   /**
-   * Converts the provided object to an Account by validating and then setting it's prototype.
+   * Converts a previously validated object to an Account by setting it's prototype.
    *
-   * Validates the provided object and, if it passes validation, applies the Account prototype to the object. This
-   * keeps us from incuring the overhead of creating a new object as opposed to validating and applying existing
-   * prototype chains.
+   * Applies the Account prototype to the object. This keeps us from incuring the overhead of creating a new object as
+   * opposed to validating and applying existing prototype chains.
    *
-   * @param {object} obj The object to validate and apply class functions to.
-   * @param {boolean} [isNew] Indicates whether the object represents a new account or an existing one. Defaults to
-   * false.
-   * @returns {Account} The object with the Account prototype.
-   * @throws {FinnEror} When validation fails.
+   * @param {object} obj The object to apply class functions to.
+   * @returns {Account} A reference to the object with the Account prototype.
    */
-  static convert(obj, isNew = false) {
-    if (obj) {
-      // Make sure the incoming props are valid
-      let validationResult = Joi.validate(obj, JoiSchema);
-      if (validationResult.error) {
-        throw new FinnError(
-          HttpStatus.BAD_REQUEST,
-          'Invalid format for request on account resource',
-          validationResult.error.details.map(e => e.message)
-        );
-      }
+  static convert(obj) {
+    obj.__proto__ = Account.prototype;
+    return obj;
+  }
 
-      // Good to go! Simply apply the prototype to the object, adding a default ID if necessary
-      checkProperty('id', obj, isNew, uuid);
+  /**
+   * Validates whether the JSON body in an HTTP request to create a new account conforms to the required schema.
+   *
+   * @param {object} body The HTTP request body (as JSON) to validate.
+   * @throws {FinnEror} When the validation fails (HTTP ERROR 400)
+   */
+  static validateCreateRequest(body) {
+    let result = Joi.validate(body, CreateRequestSchema);
+    if (result.error) {
+      throw new FinnError(
+        HttpStatus.BAD_REQUEST,
+        'Improperly formatted body in request to create an account',
+        result.error.details.map(d => d.message)
+      );
+    }
+  }
 
-      obj.__proto__ = Account.prototype;
+  /**
+   * Validates whether the JSON body in an HTTP request to update account information conforms to the required schema.
+   *
+   * @param {object} body The HTTP request body (as JSON) to validate.
+   * @throws {FinnEror} When the validation fails (HTTP ERROR 400)
+   */
+  static validateUpdateRequest(body) {
+    let result = Joi.validate(body, UpdateRequestSchema);
+    if (result.error) {
+      throw new FinnError(
+        HttpStatus.BAD_REQUEST,
+        'Impropery formatted body in request to update an existing account',
+        result.error.details.map(d => d.message)
+      );
+    }
+  }
 
-      return obj;
+  /**
+   * Validates whether raw data read from the database conforms to the Account schema.
+   *
+   * @param {object} queryResult The resulting object read from the database that represents account information.
+   * @throws {FinnError} When the validation fails and corrupt data is detected (HTTP ERROR 500)
+   */
+  static validateReadFromDatabase(queryResult) {
+    let result = Joi.validate(queryResult, ReadSchema);
+    if (result.error) {
+      throw new FinnError(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'Corrupted data detected when reading from database',
+        result.error.details.map(d => d.message)
+      );
     }
   }
 }

@@ -6,13 +6,14 @@ const HttpStatus = require('http-status-codes');
 
 module.exports = {
   /**
+   * Creates a new account from an HTTP request body.
    *
-   * @param {*} account
+   * @param {object} body The JSON body in the HTTP request.
    * @returns {Promise<Account>} A promise resolving to the newly created account.
    */
   createNewAccountFromBody: async function(body) {
-    let account = Account.convert(body);
-    account.unitAmount = conversions.toUnitAmount(account.amount || '0.00');
+    let account = Account.convert({ ...new Account(), ...body });
+    account.unitAmount = conversions.toUnitAmount(account.amount, account.conversionFactor);
     await accountsRepo.add(account);
     return account;
   },
@@ -42,8 +43,6 @@ module.exports = {
    * @returns {Promise<Account>} A promise resolving to the reference to the updated Account object.
    */
   updateAccountFromBody: async function(id, body) {
-    body.id = id;
-    body.unitAmount = conversions.toUnitAmount(body.amount);
     let oldAccount = await accountsRepo.get(id);
     if (!oldAccount) {
       throw new FinnError(HttpStatus.NOT_FOUND, 'Failed to find account to update');
