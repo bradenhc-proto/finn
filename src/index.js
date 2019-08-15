@@ -4,6 +4,8 @@ const transactionRoutes = require('./routes/transactions-routes');
 
 const app = new Koa();
 
+const port = 3000;
+
 app.use(async (ctx, next) => {
   try {
     await next();
@@ -24,4 +26,6 @@ app.on('error', (err, ctx) => {
 app.use(accountRoutes);
 app.use(transactionRoutes);
 
-app.listen(3000);
+app.listen(port, () => {
+  console.log(`Finn server is listening on port ${port}`);
+});
