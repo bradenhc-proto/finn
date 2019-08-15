@@ -30,7 +30,7 @@ module.exports = {
     return Array.from(Object.values(transactions))
       .filter((v, i) => i >= offset && (limit < 0 || count++ < limit))
       .map(r => {
-        return Transaction.convert({ ...r });
+        return Transaction.apply({ ...r });
       });
   },
 
@@ -44,7 +44,7 @@ module.exports = {
     if (!id) {
       throw new FinnError(HttpStatus.BAD_REQUEST, 'Missing ID for transaction to fetch');
     }
-    return Transaction.convert({ ...transactions[id] });
+    return Transaction.apply({ ...transactions[id] });
   },
 
   /**

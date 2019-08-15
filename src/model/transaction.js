@@ -2,24 +2,46 @@
 const uuid = require('uuid/v4');
 const Joi = require('@hapi/joi');
 const TransactionType = require('./transaction-type');
+const conversions = require('../utils/conversions');
 const FinnError = require('../utils/error');
 const HttpStatus = require('http-status-codes');
-const checkProperty = require('../utils/check-property');
 
-const JoiSchema = Joi.object().keys({
+const Schema = {
   id: Joi.strict(),
-  type: Joi.string()
-    .allow(Object.values(TransactionType))
-    .required(),
-  details: Joi.string().required(),
+  type: Joi.string().allow(Object.values(TransactionType)),
+  details: Joi.string(),
   sourceAccountId: Joi.string().allow(null),
-  targetAccountId: Joi.string().required(),
+  targetAccountId: Joi.string(),
   amount: Joi.string(),
   unitAmount: Joi.number().integer(),
+  conversionFactor: Joi.number().integer(),
+  dateApplied: Joi.date(),
   dateCreated: Joi.date(),
   dateUpdated: Joi.date().allow(null),
   isCompleted: Joi.boolean()
+};
+
+const CreateRequestSchema = Joi.object().keys({
+  type: Schema.type.required(),
+  details: Schema.details.required(),
+  sourceAccountId: Schema.sourceAccountId.optional(),
+  targetAccountId: Schema.targetAccountId.required(),
+  amount: Schema.amount.required(),
+  dateApplied: Schema.dateApplied.required()
 });
+
+const UpdateRequestSchema = Joi.object().keys({
+  type: Schema.type.optional(),
+  details: Schema.details.optional(),
+  sourceAccountId: Schema.sourceAccountId.optional(),
+  targetAccountId: Schema.targetAccountId.optional(),
+  amount: Schema.amount.optional(),
+  dateApplied: Schema.dateApplied.optional()
+});
+
+const ReadSchema = Joi.object()
+  .keys(Schema)
+  .options({ presence: 'required' });
 
 /**
  * Represents a transaction affecting one or more accounts.
@@ -65,7 +87,7 @@ class Transaction {
      * The string representation of the human readable amount.
      * @type {string}
      */
-    this.amount = "0.00";
+    this.amount = '0.00';
 
     /**
      * The amount in the transaction in $0.00001.
@@ -74,7 +96,18 @@ class Transaction {
     this.unitAmount = null;
 
     /**
-     * The UNIX timestamp (UTC) in milliseconds of when the transaction took place.
+     * The conversion factor used to transform the string amount to a numerical unit amount and visa versa.
+     * @type {number}
+     */
+    this.conversionFactor = conversions.CONVERSION_FACTOR;
+
+    /**
+     * The date when the transaction took place.
+     */
+    this.dateApplied = Date.now();
+
+    /**
+     * The UNIX timestamp (UTC) in milliseconds of when the transaction information was created.
      * @type {number}
      */
     this.dateCreated = Date.now();
@@ -93,64 +126,65 @@ class Transaction {
   }
 
   /**
-   * Executes the transaction in a manner based on its type.
+   * Applies the Transaction prototype to the object, essentially "converting" the object to be of type Transaction.
    *
-   * @param {Account} target The target account.
-   * @param {Account} [source] The source account if the transaction is a transfer
-   * @throws {Error} When an invalid transaction is processed, such as one that will cause an account balance to become
-   * negative.
+   * @param {object} obj The object to validate and apply the Transaction prototype to.
+   * @returns {Transaction} The object passed in the parameter with the Transaction prototype applied.
    */
-  execute(target, source) {
-    switch (this.type) {
-      case TransactionType.INCOME:
-        return this._executeIncome(target);
-      case TransactionType.EXPENSE:
-        return this._executeExpense(target);
-      case TransactionType.TRANSFER:
-        return this._executeTransfer(source, target);
-    }
-  }
-
-  _executeIncome(target) {
-    target.addIncome(this.unitAmount);
-  }
-
-  _executeExpense(target) {
-    target.addExpense(this.unitAmount);
-  }
-
-  _executeTransfer(source, target) {
-    source.addExpense(this.unitAmount);
-    target.addIncome(this.unitAmount);
+  static apply(obj) {
+    obj.__proto__ = Transaction.prototype;
+    return obj;
   }
 
   /**
-   * Validates an object and, if validation passes, applies the Transaction prototype to the object, essentially
-   * "converting" the object to be of type Transaction.
+   * Validates whether the JSON body in an HTTP request to create a new transaction conforms to the required schema.
    *
-   * @param {object} obj The object to validate and apply the Transaction prototype to.
-   * @param {boolean} [isNew] Indicates whether the object represents a new Transaction or an existing one. Defaults
-   * to false.
-   * @returns {Transaction} The object passed in the parameter with the Transaction prototype applied.
+   * @param {object} body The HTTP request body (as JSON) to validate.
+   * @throws {FinnEror} When the validation fails (HTTP ERROR 400)
    */
-  static convert(obj, isNew = false) {
-    let validation = Joi.validate(obj, JoiSchema);
-    if (validation.error) {
+  static validateCreateRequest(body) {
+    let result = Joi.validate(body, CreateRequestSchema);
+    if (result.error) {
       throw new FinnError(
         HttpStatus.BAD_REQUEST,
-        'Invalid format for request to create transaction',
-        validation.error.details.map(e => e.message)
+        'Improperly formatted body in request to create a transaction',
+        result.error.details.map(d => d.message)
       );
     }
+  }
 
-    // Passed initial schema validation. Perform additional checks.
-    checkProperty('id', obj, isNew, uuid);
-    checkProperty('dateCreated', obj, isNew, Date.now);
-    checkProperty('isCompleted', obj, isNew, () => false);
+  /**
+   * Validates whether the JSON body in an HTTP request to update transaction information conforms to the required schema.
+   *
+   * @param {object} body The HTTP request body (as JSON) to validate.
+   * @throws {FinnEror} When the validation fails (HTTP ERROR 400)
+   */
+  static validateUpdateRequest(body) {
+    let result = Joi.validate(body, UpdateRequestSchema);
+    if (result.error) {
+      throw new FinnError(
+        HttpStatus.BAD_REQUEST,
+        'Impropery formatted body in request to update an existing transaction',
+        result.error.details.map(d => d.message)
+      );
+    }
+  }
 
-    obj.__proto__ = Transaction.prototype;
-
-    return obj;
+  /**
+   * Validates whether raw data read from the database conforms to the Account schema.
+   *
+   * @param {object} queryResult The resulting object read from the database that represents account information.
+   * @throws {FinnError} When the validation fails and corrupt data is detected (HTTP ERROR 500)
+   */
+  static validateReadFromDatabase(queryResult) {
+    let result = Joi.validate(queryResult, ReadSchema);
+    if (result.error) {
+      throw new FinnError(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        'Corrupted data detected when reading from database',
+        result.error.details.map(d => d.message)
+      );
+    }
   }
 }
 

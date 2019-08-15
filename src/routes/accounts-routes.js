@@ -1,39 +1,17 @@
-const Router = require('koa-router');
+const Router = require('@koa/router');
 const bodyParser = require('koa-bodyparser');
-const Account = require('../model/account');
+const validation = require('../validation/account-request-validation');
 const handlers = require('../handlers/accounts-handlers');
 
 const router = new Router();
 router.use(bodyParser());
 
-router.get('/accounts', async ctx => {
-  ctx.body = await handlers.queryAccounts();
-});
+router.get('/accounts', handlers.handleQueryAccounts());
 
-router.post(
-  '/accounts',
-  async (ctx, next) => {
-    Account.validateCreateRequest(ctx.request.body);
-    await next();
-  },
-  async ctx => {
-    await handlers.createNewAccountFromBody(ctx.request.body);
-  }
-);
+router.post('/accounts', validation.validateCreateRequest(), handlers.handleCreateNewAccount());
 
-router.get('/accounts/:id', async ctx => {
-  ctx.body = await handlers.queryAccounts({ id: ctx.params.id });
-});
+router.get('/accounts/:id', handlers.handleGetSingleAccount());
 
-router.patch(
-  '/accounts/:id',
-  async (ctx, next) => {
-    Account.validateUpdateRequest(ctx.request.body);
-    await next();
-  },
-  async ctx => {
-    ctx.body = await handlers.updateAccountFromBody(ctx.params.id, ctx.request.body);
-  }
-);
+router.patch('/accounts/:id', validation.validateUpdateRequest(), handlers.handleUpdateAccount());
 
-module.exports = router;
+module.exports = router.routes();

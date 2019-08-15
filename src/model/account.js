@@ -129,7 +129,7 @@ class Account {
    * @param {object} obj The object to apply class functions to.
    * @returns {Account} A reference to the object with the Account prototype.
    */
-  static convert(obj) {
+  static apply(obj) {
     obj.__proto__ = Account.prototype;
     return obj;
   }

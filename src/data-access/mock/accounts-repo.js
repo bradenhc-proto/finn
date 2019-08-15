@@ -31,7 +31,7 @@ module.exports = {
     return Array.from(Object.values(accounts))
       .filter((a, i) => i >= offset && (limit < 0 || count++ < limit))
       .map(r => {
-        return Account.convert({ ...r });
+        return Account.apply({ ...r });
       });
   },
 
@@ -45,7 +45,7 @@ module.exports = {
     if (!id) {
       throw new FinnError(HttpStatus.BAD_REQUEST, 'Missing ID for account to fetch');
     }
-    return Account.convert({ ...accounts[id] });
+    return Account.apply({ ...accounts[id] });
   },
 
   /**

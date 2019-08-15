@@ -1,3 +1,4 @@
+/** @typedef {import('koa').Middleware} KoaMiddleware koa.Middleware */
 const accountsRepo = require('../data-access/mock/accounts-repo');
 const conversions = require('../utils/conversions');
 const Account = require('../model/account');
@@ -8,47 +9,63 @@ module.exports = {
   /**
    * Creates a new account from an HTTP request body.
    *
-   * @param {object} body The JSON body in the HTTP request.
-   * @returns {Promise<Account>} A promise resolving to the newly created account.
+   * @returns {KoaMiddleware} Middleware function used to handle the create request.
    */
-  createNewAccountFromBody: async function(body) {
-    let account = Account.convert({ ...new Account(), ...body });
-    account.unitAmount = conversions.toUnitAmount(account.amount, account.conversionFactor);
-    await accountsRepo.add(account);
-    return account;
+  handleCreateNewAccount: function() {
+    return async function(ctx) {
+      let account = Account.apply({ ...new Account(), ...ctx.request.body });
+      account.unitAmount = conversions.toUnitAmount(account.amount, account.conversionFactor);
+      await accountsRepo.add(account);
+      ctx.status = HttpStatus.CREATED;
+      ctx.body = account;
+    };
+  },
+
+  /**
+   * Handles querying multiple records from the Account repository.
+   *
+   * @returns {KoaMiddleware} Middleware function used to handle the query request.
+   */
+  handleQueryAccounts: function() {
+    return async function(ctx) {
+      let results = await accountsRepo.all();
+      ctx.status = HttpStatus.OK;
+      ctx.body = results;
+    };
+  },
+
+  /**
+   * Handles fetching a single record from the Account repository.
+   *
+   * @returns {KoaMiddleware} Middleware function used to handle the request.
+   */
+  handleGetSingleAccount: function() {
+    return async function(ctx) {
+      let id = ctx.params.id;
+      let result = accountsRepo.get(id);
+      if (!result) {
+        throw new FinnError(HttpStatus.NOT_FOUND, 'Account not found', `Failed to find the account with ID ${id}`);
+      }
+      ctx.status = HttpStatus.OK;
+      ctx.body = result;
+    };
   },
 
   /**
    *
-   * @typedef {object} AccountsQueryOptions
-   * @property {string} [id] The ID of the account to fetch in the query
-   *
-   * @param {AccountsQueryOptions} [options] The options used to filter query results
-   * @returns {Promise<Account[]>} A promise resolving to an array containing the query results as Account objects.
+   * @returns {KoaMiddleware} A promise resolving to the reference to the updated Account object.
    */
-  queryAccounts: async function(options) {
-    let results;
-    if (options && options.id) {
-      results = [await accountsRepo.get(options.id)];
-    } else {
-      results = await accountsRepo.all();
-    }
-    return results;
-  },
-
-  /**
-   *
-   * @param {string} id The ID of the account to update.
-   * @param {object} body The unvalidated JSON body (as an object) from the request.
-   * @returns {Promise<Account>} A promise resolving to the reference to the updated Account object.
-   */
-  updateAccountFromBody: async function(id, body) {
-    let oldAccount = await accountsRepo.get(id);
-    if (!oldAccount) {
-      throw new FinnError(HttpStatus.NOT_FOUND, 'Failed to find account to update');
-    }
-    let updatedAccount = Account.convert({ ...oldAccount, ...body });
-    await accountsRepo.update(updatedAccount);
-    return updatedAccount;
+  handleUpdateAccount: function() {
+    return async function(ctx) {
+      let id = ctx.params.id;
+      let body = ctx.request.body;
+      let oldAccount = await accountsRepo.get(id);
+      if (!oldAccount) {
+        throw new FinnError(HttpStatus.NOT_FOUND, 'Failed to find account to update');
+      }
+      let updatedAccount = Account.apply({ ...oldAccount, ...body });
+      await accountsRepo.update(updatedAccount);
+      ctx.status = HttpStatus.OK;
+    };
   }
 };

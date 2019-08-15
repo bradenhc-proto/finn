@@ -1,4 +1,4 @@
-const proto = (module.exports = {
+module.exports = {
   CASH: 'cash',
   DEBT: 'debt'
-});
+};
