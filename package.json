@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/bradenhc/finn#readme",
   "dependencies": {
-    "@hapi/joi": "^15.1.0",
+    "@hapi/joi": "^15.1.1",
     "@koa/router": "^8.0.0",
     "@types/hapi__joi": "^15.0.3",
     "config": "^3.2.2",
